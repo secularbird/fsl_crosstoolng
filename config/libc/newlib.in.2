@@ -1,0 +1,27 @@
+# newlib second-part options
+
+config LIBC_NEWLIB_IO_C99FMT
+    bool
+    prompt "Enable IOs on C99 formats"
+    help
+      Enable support for IOs on C99 formats.
+
+config LIBC_NEWLIB_IO_LL
+    bool
+    prompt "Enable IOs on long long"
+    help
+      Enable support for IOs on long long integers.
+
+config LIBC_NEWLIB_IO_FLOAT
+    bool
+    prompt "Enable IOs on floats and doubles"
+    help
+      Enable support for IOs on floating point
+      values (float and double).
+
+config LIBC_NEWLIB_IO_LDBL
+    bool
+    prompt "Enable IOs on long doubles"
+    depends on LIBC_NEWLIB_IO_FLOAT
+    help
+      Enable support for IOs on long doubles.
