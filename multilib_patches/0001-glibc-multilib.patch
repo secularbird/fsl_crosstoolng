@@ -1,0 +1,402 @@
+diff --git a/Makeconfig b/Makeconfig
+index e5cbf64..0757188 100644
+--- a/Makeconfig
++++ b/Makeconfig
+@@ -490,7 +490,7 @@ ifeq ($(elf),yes)
+ # We need the versioned name of libc.so in the deps of $(others) et al
+ # so that the symlink to libc.so is created before anything tries to
+ # run the linked programs.
+-link-libc = -Wl,-rpath-link=$(rpath-link) \
++link-libc = $(CFLAGS) -Wl,-rpath-link=$(rpath-link) \
+ 	    $(common-objpfx)libc.so$(libc.so-version) \
+ 	    $(common-objpfx)$(patsubst %,$(libtype.oS),c) \
+ 	    $(as-needed) $(common-objpfx)elf/ld.so $(no-as-needed) $(gnulib)
+@@ -531,14 +531,14 @@ endif
+ 
+ # The static libraries.
+ ifeq (yes,$(build-static))
+-link-libc-static = $(common-objpfx)libc.a $(static-gnulib) $(common-objpfx)libc.a
++link-libc-static = $(CFLAGS) $(common-objpfx)libc.a $(static-gnulib) $(otherlibs) $(common-objpfx)libc.a
+ else
+ ifeq (yes,$(build-shared))
+ # We can try to link the programs with lib*_pic.a...
+-link-libc-static = $(static-gnulib) $(common-objpfx)libc_pic.a
++link-libc-static = $(CFLAGS) $(static-gnulib) $(common-objpfx)libc_pic.a
+ endif
+ endif
+-link-libc-bounded = $(common-objpfx)libc_b.a $(gnulib) $(common-objpfx)libc_b.a
++link-libc-bounded = $(CFLAGS) $(common-objpfx)libc_b.a $(gnulib) $(common-objpfx)libc_b.a
+ 
+ ifndef gnulib
+ ifneq ($(have-cc-with-libunwind),yes)
+@@ -558,8 +558,8 @@ endif
+ ifeq ($(elf),yes)
+ +preinit = $(addprefix $(csu-objpfx),crti.o)
+ +postinit = $(addprefix $(csu-objpfx),crtn.o)
+-+prector = `$(CC) $(sysdep-LDFLAGS) --print-file-name=crtbegin.o`
+-+postctor = `$(CC) $(sysdep-LDFLAGS) --print-file-name=crtend.o`
+++prector = `$(CC) $(CFLAGS) $(sysdep-LDFLAGS) --print-file-name=crtbegin.o`
+++postctor = `$(CC) $(CFLAGS) $(sysdep-LDFLAGS) --print-file-name=crtend.o`
+ # Variants of the two previous definitions for linking PIE programs.
+ +prectorS = `$(CC) $(sysdep-LDFLAGS) --print-file-name=crtbeginS.o`
+ +postctorS = `$(CC) $(sysdep-LDFLAGS) --print-file-name=crtendS.o`
+@@ -697,6 +697,7 @@ CPPFLAGS = $($(subdir)-CPPFLAGS) $(+includes) $(defines) \
+ 	   $(foreach lib,$(libof-$(basename $(@F))) \
+ 			 $(libof-$(<F)) $(libof-$(@F)),$(CPPFLAGS-$(lib))) \
+ 	   $(CPPFLAGS-$(<F)) $(CPPFLAGS-$(@F)) $(CPPFLAGS-$(basename $(@F)))
++CPPFLAGS += $(CPPFLAGS-config)
+ override CFLAGS	= -std=gnu99 $(gnu89-inline-CFLAGS) \
+ 		  $(filter-out %frame-pointer,$(+cflags)) $(+gccwarn-c) \
+ 		  $(sysdep-CFLAGS) $(CFLAGS-$(suffix $@)) $(CFLAGS-$(<F)) \
+diff --git a/Makefile b/Makefile
+index 61cfa43..ab8e65c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -116,6 +116,7 @@ install-symbolic-link: subdir_install
+ 	rm -f $(symbolic-link-list)
+ 
+ install:
++dont-bother-with-destdir:
+ 	-test ! -x $(common-objpfx)elf/ldconfig || LC_ALL=C LANGUAGE=C \
+ 	  $(common-objpfx)elf/ldconfig $(addprefix -r ,$(install_root)) \
+ 				       $(slibdir) $(libdir)
+diff --git a/Makerules b/Makerules
+index 9bfe550..4ee69a1 100644
+--- a/Makerules
++++ b/Makerules
+@@ -457,7 +457,7 @@ endif
+ 
+ ifeq ($(elf),yes)
+ define build-shlib-helper
+-$(LINK.o) -shared $(static-libgcc) -Wl,-O1 $(sysdep-LDFLAGS) \
++$(LINK.o) $(CFLAGS) -shared $(static-libgcc) -Wl,-O1 $(sysdep-LDFLAGS) \
+ 	  $(if $($(@F)-no-z-defs)$(no-z-defs),,-Wl,-z,defs) $(config-LDFLAGS) \
+ 	  $(extra-B-$(@F:lib%.so=%).so) -B$(csu-objpfx) \
+ 	  $(extra-B-$(@F:lib%.so=%).so) $(load-map-file) \
+@@ -560,7 +560,7 @@ $(build-module-helper) -o $@ -T $(common-objpfx)shlib.lds \
+ 	  $(csu-objpfx)abi-note.o $(build-module-objlist)
+ endef
+ define build-module-asneeded
+-$(build-module-helper) -o $@ -T $(common-objpfx)shlib.lds \
++$(build-module-helper) $(CFLAGS) -o $@ -T $(common-objpfx)shlib.lds \
+ 	  $(csu-objpfx)abi-note.o \
+ 	  -Wl,--as-needed $(build-module-objlist) -Wl,--no-as-needed
+ endef
+diff --git a/elf/Makefile b/elf/Makefile
+index 0f37804..d29ee2a 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -149,6 +149,13 @@ install-others	= $(inst_slibdir)/$(rtld-installed-name)
+ install-bin-script = ldd
+ endif
+ 
++ifeq (yes,$(build-static-nss))
++nssobjdir := $(patsubst ../$(subdir),.,$(common-objpfx)nss)
++resolvobjdir := $(patsubst ../$(subdir),.,$(common-objpfx)resolv)
++otherlibs += $(nssobjdir)/libnss_files.a $(resolvobjdir)/libnss_dns.a \
++	     $(resolvobjdir)/libresolv.a
++endif
++
+ others		= sprof sln
+ install-bin	= sprof
+ others-static   = sln
+@@ -326,7 +333,7 @@ endif
+ reloc-link = $(LINK.o) -nostdlib -nostartfiles -r
+ 
+ $(objpfx)dl-allobjs.os: $(all-rtld-routines:%=$(objpfx)%.os)
+-	$(reloc-link) -o $@ $^
++	$(reloc-link) $(CFLAGS) -o $@ $^
+ 
+ # Link together the dynamic linker into a single relocatable object.
+ # First we do a link against libc_pic.a just to get a link map,
+@@ -339,7 +346,7 @@ $(objpfx)dl-allobjs.os: $(all-rtld-routines:%=$(objpfx)%.os)
+ 
+ $(objpfx)librtld.map: $(objpfx)dl-allobjs.os $(common-objpfx)libc_pic.a
+ 	@-rm -f $@T
+-	$(reloc-link) -o $@.o '-Wl,-(' $^ -lgcc '-Wl,-)' -Wl,-Map,$@T
++	$(reloc-link) $(CFLAGS) -o $@.o '-Wl,-(' $^ -lgcc '-Wl,-)' -Wl,-Map,$@T
+ 	rm -f $@.o
+ 	mv -f $@T $@
+ 
+@@ -368,7 +375,7 @@ $(objpfx)rtld-libc.a: $(objpfx)librtld.mk FORCE
+ 	$(MAKE) -f $< -f rtld-Rules
+ 
+ $(objpfx)librtld.os: $(objpfx)dl-allobjs.os $(objpfx)rtld-libc.a
+-	$(LINK.o) -nostdlib -nostartfiles -r -o $@ '-Wl,-(' $^ -lgcc '-Wl,-)' \
++	$(LINK.o) $(CFLAGS) -nostdlib -nostartfiles $(LDFLAGS-rtld) -r -o $@ '-Wl,-(' $^ -lgcc '-Wl,-)' \
+ 		  -Wl,-Map,$@.map
+ 
+ generated += librtld.map librtld.mk rtld-libc.a librtld.os.map
+diff --git a/grp/tst_fgetgrent.sh b/grp/tst_fgetgrent.sh
+index 4f7f460..026d025 100644
+--- a/grp/tst_fgetgrent.sh
++++ b/grp/tst_fgetgrent.sh
+@@ -24,7 +24,8 @@ elf_objpfx=$1; shift
+ rtld_installed_name=$1; shift
+ 
+ testout=${common_objpfx}/grp/tst_fgetgrent.out
+-library_path=${common_objpfx}
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
+ 
+ result=0
+ 
+diff --git a/iconvdata/run-iconv-test.sh b/iconvdata/run-iconv-test.sh
+index 4b8a128..86d146d 100755
+--- a/iconvdata/run-iconv-test.sh
++++ b/iconvdata/run-iconv-test.sh
+@@ -34,7 +34,7 @@ GCONV_PATH=$codir/iconvdata
+ export GCONV_PATH
+ 
+ # We have to have some directories in the library path.
+-LIBPATH=$codir:$codir/iconvdata
++LIBPATH=$codir:$codir/iconvdata:$codir/dlfcn
+ 
+ # How the start the iconv(1) program.
+ ICONV='$codir/elf/ld.so --library-path $LIBPATH --inhibit-rpath ${from}.so \
+diff --git a/iconvdata/tst-table.sh b/iconvdata/tst-table.sh
+index 1de7114..6081e86 100755
+--- a/iconvdata/tst-table.sh
++++ b/iconvdata/tst-table.sh
+@@ -59,8 +59,11 @@ else
+   irreversible=${charset}.irreversible
+ fi
+ 
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
+ # iconv in one direction.
+-${common_objpfx}elf/ld.so --library-path $common_objpfx \
++${common_objpfx}elf/ld.so --library-path $library_path \
+ ${objpfx}tst-table-from ${charset} \
+   > ${objpfx}tst-${charset}.table
+ 
+diff --git a/intl/tst-codeset.sh b/intl/tst-codeset.sh
+index 8b05216..58670bb 100644
+--- a/intl/tst-codeset.sh
++++ b/intl/tst-codeset.sh
+@@ -37,6 +37,9 @@ export GCONV_PATH
+ LOCPATH=${common_objpfx}localedata
+ export LOCPATH
+ 
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
+ ${common_objpfx}elf/ld.so --library-path $common_objpfx \
+ ${objpfx}tst-codeset > ${objpfx}tst-codeset.out
+ 
+diff --git a/intl/tst-gettext.sh b/intl/tst-gettext.sh
+index 9d4375b..231dee1 100755
+--- a/intl/tst-gettext.sh
++++ b/intl/tst-gettext.sh
+@@ -51,9 +51,12 @@ export GCONV_PATH
+ LOCPATH=${common_objpfx}localedata
+ export LOCPATH
+ 
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
+ # Now run the test.
+ MALLOC_TRACE=$malloc_trace LOCPATH=${objpfx}localedir:$LOCPATH \
+-${common_objpfx}elf/ld.so --library-path $common_objpfx \
++${common_objpfx}elf/ld.so --library-path $library_path \
+ ${objpfx}tst-gettext > ${objpfx}tst-gettext.out ${objpfx}domaindir
+ 
+ exit $?
+diff --git a/intl/tst-gettext2.sh b/intl/tst-gettext2.sh
+index 68157f8..17ab77a 100644
+--- a/intl/tst-gettext2.sh
++++ b/intl/tst-gettext2.sh
+@@ -65,8 +65,11 @@ export GCONV_PATH
+ LOCPATH=${objpfx}domaindir
+ export LOCPATH
+ 
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
+ # Now run the test.
+-${common_objpfx}elf/ld.so --library-path $common_objpfx \
++${common_objpfx}elf/ld.so --library-path $library_path \
+ ${objpfx}tst-gettext2 > ${objpfx}tst-gettext2.out ${objpfx}domaindir &&
+ cmp ${objpfx}tst-gettext2.out - <<EOF
+ String1 - Lang1: 1st string
+diff --git a/intl/tst-translit.sh b/intl/tst-translit.sh
+index 22826e9..661fc75 100755
+--- a/intl/tst-translit.sh
++++ b/intl/tst-translit.sh
+@@ -36,7 +36,10 @@ export GCONV_PATH
+ LOCPATH=${common_objpfx}localedata
+ export LOCPATH
+ 
+-${common_objpfx}elf/ld.so --library-path $common_objpfx \
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
++${common_objpfx}elf/ld.so --library-path $library_path \
+ ${objpfx}tst-translit > ${objpfx}tst-translit.out ${objpfx}domaindir
+ 
+ exit $?
+diff --git a/malloc/tst-mtrace.sh b/malloc/tst-mtrace.sh
+index 771689a..c9c2ea9 100755
+--- a/malloc/tst-mtrace.sh
++++ b/malloc/tst-mtrace.sh
+@@ -24,9 +24,12 @@ common_objpfx=$1; shift
+ status=0
+ trap "rm -f ${common_objpfx}malloc/tst-mtrace.leak; exit 1" 1 2 15
+ 
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
+ MALLOC_TRACE=${common_objpfx}malloc/tst-mtrace.leak \
+ LOCPATH=${common_objpfx}localedata GCONV_PATH=${common_objpfx}iconvdata \
+-${common_objpfx}elf/ld.so --library-path $common_objpfx \
++${common_objpfx}elf/ld.so --library-path $library_path \
+   ${common_objpfx}malloc/tst-mtrace || status=1
+ 
+ if test $status -eq 0 && test -f ${common_objpfx}malloc/mtrace; then
+diff --git a/manual/Makefile b/manual/Makefile
+index b1f5fa7..9f5eaf1 100644
+--- a/manual/Makefile
++++ b/manual/Makefile
+@@ -104,9 +104,14 @@ dir-add.texi: xtract-typefun.awk $(texis)
+ libm-err.texi: stamp-libm-err
+ stamp-libm-err: libm-err-tab.pl $(wildcard $(foreach dir,$(sysdirs),\
+ 						     $(dir)/libm-test-ulps))
++ifneq ($(PERL),no)
+ 	pwd=`pwd`; \
+ 	$(PERL) $< $$pwd/.. > libm-err-tmp
+ 	$(move-if-change) libm-err-tmp libm-err.texi
++else
++	echo "Unable to rebuild math docs, no perl installed"
++	touch libm-err.texi
++endif
+ 	touch $@
+ 
+ # Generate Texinfo files from the C source for the example programs.
+diff --git a/nptl/Makefile b/nptl/Makefile
+index 266f178..8a50d7e 100644
+--- a/nptl/Makefile
++++ b/nptl/Makefile
+@@ -265,9 +265,9 @@ xtests = tst-setuid1 tst-setuid1-static tst-mutexpp1 tst-mutexpp6 tst-mutexpp10
+ # Files which must not be linked with libpthread.
+ tests-nolibpthread = tst-unload
+ 
+-# This sets the stack resource limit to 1023kb, which is not a multiple
+-# of the page size since every architecture's page size is > 1k.
+-tst-oddstacklimit-ENV = ; ulimit -s 1023;
++# This sets the stack resource limit to 8193kb, which is not a multiple
++# of the page size since every architecture's page size is 4096 bytes.
++tst-oddstacklimit-ENV = ; ulimit -s 8193;
+ 
+ distribute = eintr.c tst-cleanup4aux.c
+ 
+@@ -426,6 +426,35 @@ CFLAGS-tst-cleanupx3.c += -fexceptions
+ CFLAGS-tst-cleanupx4.c += -fexceptions
+ CFLAGS-tst-oncex3.c += -fexceptions
+ CFLAGS-tst-oncex4.c += -fexceptions
++
++ldflags-libgcc_s = --as-needed -lgcc_s --no-as-needed
++LDFLAGS-tst-cancelx2 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx3 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx4 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx5 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx6 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx7 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx8 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx9 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx10 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx11 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx12 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx13 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx14 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx15 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx16 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx17 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx18 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx20 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cancelx21 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cleanupx0 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cleanupx1 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cleanupx2 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cleanupx3 += $(ldflags-libgcc_s)
++LDFLAGS-tst-cleanupx4 += $(ldflags-libgcc_s)
++LDFLAGS-tst-oncex3 += $(ldflags-libgcc_s)
++LDFLAGS-tst-oncex4 += $(ldflags-libgcc_s)
++
+ CFLAGS-tst-align.c += $(stack-align-test-flags)
+ CFLAGS-tst-align3.c += $(stack-align-test-flags)
+ CFLAGS-tst-initializers1.c = -W -Wall -Werror
+diff --git a/nptl/tst-tls6.sh b/nptl/tst-tls6.sh
+index 1ae24fc..1977e50 100755
+--- a/nptl/tst-tls6.sh
++++ b/nptl/tst-tls6.sh
+@@ -5,8 +5,8 @@ elf_objpfx=$1; shift
+ rtld_installed_name=$1; shift
+ logfile=$common_objpfx/nptl/tst-tls6.out
+ 
+-# We have to find libc and nptl
+-library_path=${common_objpfx}:${common_objpfx}nptl
++# We have to find libc and nptl (also libdl in case sandbox is in use)
++library_path=${common_objpfx}:${common_objpfx}nptl:${common_objpfx}/dlfcn
+ tst_tls5="${elf_objpfx}${rtld_installed_name} --library-path ${library_path} \
+ 	  ${common_objpfx}/nptl/tst-tls5"
+ 
+diff --git a/posix/globtest.sh b/posix/globtest.sh
+index 9b9021d..ecfd0dc 100755
+--- a/posix/globtest.sh
++++ b/posix/globtest.sh
+@@ -18,7 +18,7 @@ case "$common_objpfx" in
+ esac
+ 
+ # We have to find the libc and the NSS modules.
+-library_path=${common_objpfx}:${common_objpfx}nss:${common_objpfx}nis:${common_objpfx}db2:${common_objpfx}hesiod
++library_path=${common_objpfx}:${common_objpfx}nss:${common_objpfx}nis:${common_objpfx}db2:${common_objpfx}hesiod:${common_objpfx}/dlfcn
+ 
+ # Since we use `sort' we must make sure to use the same locale everywhere.
+ LC_ALL=C
+diff --git a/posix/tst-getconf.sh b/posix/tst-getconf.sh
+index 9630ebf..620d328 100644
+--- a/posix/tst-getconf.sh
++++ b/posix/tst-getconf.sh
+@@ -10,7 +10,10 @@ if [ $# -eq 0 ]; then
+ else
+   rtld_installed_name=$1; shift
+   runit() {
+-    ${elf_objpfx}${rtld_installed_name} --library-path ${common_objpfx} "$@"
++    
++  # make sure libdl is also in path in case sandbox is in use
++  library_path=${common_objpfx}:${common_objpfx}/dlfcn
++    ${elf_objpfx}${rtld_installed_name} --library-path ${library_path} "$@"
+   }
+ fi
+ 
+diff --git a/posix/wordexp-tst.sh b/posix/wordexp-tst.sh
+index 9654457..9d9b273 100755
+--- a/posix/wordexp-tst.sh
++++ b/posix/wordexp-tst.sh
+@@ -19,8 +19,11 @@ IFS=" 	\
+ "
+ export IFS
+ 
++# make sure libdl is also in path in case sandbox is in use
++library_path=${common_objpfx}:${common_objpfx}/dlfcn
++
+ failed=0
+-${elf_objpfx}${rtld_installed_name} --library-path ${common_objpfx} \
++${elf_objpfx}${rtld_installed_name} --library-path ${library_path} \
+ ${common_objpfx}posix/wordexp-test '$*' > ${testout}1
+ cat <<"EOF" | cmp - ${testout}1 >> $logfile || failed=1
+ wordexp returned 0
+diff --git a/timezone/Makefile b/timezone/Makefile
+index 3d5b73a..b0152b3 100644
+--- a/timezone/Makefile
++++ b/timezone/Makefile
+@@ -48,7 +48,7 @@ all: # Make this the default target; it will be defined in Rules.
+ 
+ include ../Makeconfig	# Get objpfx defined so we can use it below.
+ 
+-CPPFLAGS-zic = -DNOT_IN_libc
++CPPFLAGS-zic = -DNOT_IN_libc $(CFLAGS)
+ 
+ # z.* use this variable.
+ define nl

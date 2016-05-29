@@ -1,0 +1,94 @@
+diff -Nur gcc/gcc/config/arm/sysroot_suffix.h gcc-linaro-4.6-2011.07-0/gcc/config/arm/sysroot_suffix.h
+--- gcc/gcc/config/arm/sysroot_suffix.h	2016-05-27 20:54:42.390136000 +0800
++++ gcc-linaro-4.6-2011.07-0/gcc/config/arm/sysroot_suffix.h	1970-01-01 08:00:00.000000000 +0800
+@@ -1,33 +0,0 @@
+-#undef SYSROOT_SUFFIX_SPEC
+-#define SYSROOT_SUFFIX_SPEC "" \
+-"%{march=armv5te|mcpu=arm946e-s|mtune=arm946e-s|mcpu=arm968e-s|mtune=arm968e-s|mcpu=arm926ej-s|mtune=arm926ej-s|mcpu=arm10tdmi|mtune=arm10tdmi|mcpu=arm1020t|mtune=arm1020t|mcpu=arm1026ej-s|mtune=arm1026ej-s|mcpu=arm10e|mtune=arm10e|mcpu=arm1020e|mtune=arm1020e|mcpu=arm1022e|mtune=arm1022e:/armv5;" \
+-"march=armv6|mcpu=arm1136j-s|mtune=arm1136j-s|mcpu=arm1136jf-s|mtune=arm1136jf-s|mcpu=mpcore|mtune=mpcore|mcpu=mpcorenovfp|mtune=mpcorenovfp|mcpu=arm1156t2-s|mtune=ar1156t2-s|mcpu=arm1156t2f-s|mtune=arm1156t2f-s|mcpu=arm1176jz-s|mtune=arm1176jz-s|mcpu=arm1176jzf-s|mtune=arm1176jzf-s:" \
+-  "%{mfpu=vfp:"	\
+-  	"%{mfloat-abi=softfp:/armv6/softfp;" \
+-  	"mhard-float|mfloat-abi=hard:/armv6/hard;" \
+-  	":/armv6/softfp};" \
+-    ":/armv6/softfp};" \
+-"march=armv7-a|mcpu=cortex-a5|mtune=cortex-a5|mcpu=cortex-a8|mtune=cortex-a8:" \
+-  "%{mthumb:"	\
+-  	"%{mfpu=neon:"	\
+-  		"%{mfloat-abi=softfp:"	\
+-  			"%{mcpu=cortex-a9:/armv7-a/thumb/a9;"	\
+-  			":/armv7-a/thumb/softfp};"	\
+-  		"mhard-float|mfloat-abi=hard:/armv7-a/thumb/hard;"	\
+-  		":/armv7-a/thumb/softfp};"	\
+-  	":/armv7-a/thumb/softfp};"	\
+-  ":"	\
+-  	"%{mfpu=neon:"	\
+-  		"%{mfloat-abi=softfp:"	\
+-  			"%{mcpu=cortex-a9|mtune=cortex-a9:/armv7-a/arm/softfp/a9;"	\
+-  			":/armv7-a/arm/softfp/neon};"	\
+-  		"mhard-float|mfloat-abi=hard:"		\
+-  			"%{mcpu=cortex-a9|mtune=cortex-a9:/armv7-a/arm/hard/a9;"	\
+-  			":/armv7-a/arm/hard/neon};"	\
+-  		":/armv7-a/arm/softfp/neon};"	\
+-  	"mfpu=vfpv3:"	\
+-  		"%{mfloat-abi=softfp:/armv7-a/arm/softfp/vfpv3;"	\
+-  		"mhard-float|mfloat-abi=hard:/armv7-a/arm/hard/vfpv3;"	\
+-  		":/armv7-a/arm/softfp/vfpv3};"	\
+-  	":/armv7-a/default}};"	\
+-":/default}"
+diff -Nur gcc/gcc/config.gcc gcc-linaro-4.6-2011.07-0/gcc/config.gcc
+--- gcc/gcc/config.gcc	2016-05-26 23:55:04.286154000 +0800
++++ gcc-linaro-4.6-2011.07-0/gcc/config.gcc	2011-07-18 18:08:57.000000000 +0800
+@@ -831,9 +831,6 @@
+ 	    *-androideabi)
+ 		tmake_file="$tmake_file arm/t-linux-androideabi"
+ 		;;
+-	    arm*-fsl-linux*)
+-		tm_file="$tm_file arm/sysroot_suffix.h"
+-		;;
+ 	    esac
+   	    # The BPABI long long divmod functions return a 128-bit value in
+ 	    # registers r0-r3.  Correctly modeling that requires the use of
+diff -Nur gcc/gcc/multilib.h gcc-linaro-4.6-2011.07-0/gcc/multilib.h
+--- gcc/gcc/multilib.h	2016-05-27 20:52:33.634136000 +0800
++++ gcc-linaro-4.6-2011.07-0/gcc/multilib.h	1970-01-01 08:00:00.000000000 +0800
+@@ -1,40 +0,0 @@
+-static const char *const multilib_raw[] = {
+-"default !march=armv5te !march=armv6 !march=armv7-a !mfpu=vfp !mfpu=vfpv3 !mfpu=neon !mthumb !mfloat-abi=hard !mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv5 march=armv5te !march=armv6 !march=armv7-a !mfpu=vfp !mfpu=vfpv3 !mfpu=neon !mthumb !mfloat-abi=hard !mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv6/softfp !march=armv5te march=armv6 !march=armv7-a mfpu=vfp !mfpu=vfpv3 !mfpu=neon !mthumb !mfloat-abi=hard mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/arm/hard/neon !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon !mthumb mfloat-abi=hard !mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/arm/hard/vfpv3 !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp mfpu=vfpv3 !mfpu=neon !mthumb mfloat-abi=hard !mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/arm/hard/a9 !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon !mthumb mfloat-abi=hard !mfloat-abi=softfp mcpu=cortex-a9;",
+-"armv7-a/arm/softfp/vfpv3 !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp mfpu=vfpv3 !mfpu=neon !mthumb !mfloat-abi=hard mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/arm/softfp/neon !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon !mthumb !mfloat-abi=hard mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/arm/softfp/a9 !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon !mthumb !mfloat-abi=hard mfloat-abi=softfp mcpu=cortex-a9;",
+-"armv7-a/thumb/hard !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon mthumb mfloat-abi=hard !mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/thumb/softfp !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon mthumb !mfloat-abi=hard mfloat-abi=softfp !mcpu=cortex-a9;",
+-"armv7-a/thumb/a9 !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 mfpu=neon mthumb !mfloat-abi=hard mfloat-abi=softfp mcpu=cortex-a9;",
+-"armv7-a/default !march=armv5te !march=armv6 march=armv7-a !mfpu=vfp !mfpu=vfpv3 !mfpu=neon !mthumb !mfloat-abi=hard !mfloat-abi=softfp !mcpu=cortex-a9;",
+-NULL
+-};
+-
+-static const char *const multilib_matches_raw[] = {
+-"march=armv7a march=armv7-a;",
+-"march=armv5te march=armv5te;",
+-"march=armv6 march=armv6;",
+-"march=armv7-a march=armv7-a;",
+-"mfpu=vfp mfpu=vfp;",
+-"mfpu=vfpv3 mfpu=vfpv3;",
+-"mfpu=neon mfpu=neon;",
+-"mthumb mthumb;",
+-"mfloat-abi=hard mfloat-abi=hard;",
+-"mfloat-abi=softfp mfloat-abi=softfp;",
+-"mcpu=cortex-a9 mcpu=cortex-a9;",
+-"mcpu=cortex-a15 mcpu=cortex-a15;",
+-NULL
+-};
+-
+-static const char *multilib_extra = "";
+-
+-static const char *const multilib_exclusions_raw[] = {
+-NULL
+-};
+-
+-static const char *multilib_options = "march=armv5te/march=armv6/march=armv7-a mfpu=vfp/mfpu=vfpv3/mfpu=neon mthumb mfloat-abi=hard/mfloat-abi=softfp mcpu=cortex-a9/mcpu=cortex-a15";
