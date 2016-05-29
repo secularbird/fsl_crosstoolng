@@ -58,6 +58,21 @@ startfile_multilib()
     fp_config[10]="--with-fp"
     fp_config[11]="--without-fp"
 
+    local -a cpu_config
+
+    cpu_config[0]="--with-cpu=armv7-a"
+    cpu_config[1]="--with-cpu=armv7-a"
+    cpu_config[2]=""
+    cpu_config[3]="--with-cpu=armv7-a"
+    cpu_config[4]="--with-cpu=armv7-a"
+    cpu_config[5]=""
+    cpu_config[6]="--with-cpu=armv7-a"
+    cpu_config[7]="--with-cpu=armv7-a"
+    cpu_config[8]="--with-cpu=armv7-a"
+    cpu_config[9]=""
+    cpu_config[10]=""
+    cpu_config[11]=""
+
     for ((index=0; index < ${#gcc_options[@]}; index++)) {
 	# FIXME: add some code to check it this option is already built.
 	if [ -e ${dest_dir_prefix}/${dest_dirname[index]}/usr/lib/crt1.o ]; then
@@ -69,12 +84,15 @@ startfile_multilib()
 	echo "libc_cv_forced_unwind=yes" > config.cache
 	echo "libc_cv_c_cleanup=yes" >> config.cache
 
-        BUILD_CC=i686-build_pc-linux-gnu-gcc CFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" ASFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" CC=${TC_PREFIX}-gcc AR=${TC_PREFIX}-ar RANLIB=${TC_PREFIX}-ranlib ${src_dir}/configure --prefix=/usr --build=i686-build_pc-linux-gnu --host=${TC_PREFIX} --cache-file=${build_dir}/config.cache --without-cvs --disable-profile --without-gd --with-headers=${dest_dir_prefix}/usr/include --disable-debug --disable-sanity-checks --enable-kernel=${CT_LIBC_GLIBC_MIN_KERNEL} --with-__thread --with-tls --enable-shared ${fp_config[index]} --enable-add-ons=cortex-strings,nptl,ports
+        BUILD_CC=i686-build_pc-linux-gnu-gcc CFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" ASFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" CC=${TC_PREFIX}-gcc AR=${TC_PREFIX}-ar RANLIB=${TC_PREFIX}-ranlib ${src_dir}/configure --prefix=/usr --build=i686-build_pc-linux-gnu --host=${TC_PREFIX} --cache-file=${build_dir}/config.cache --without-cvs --disable-profile --without-gd --with-headers=${dest_dir_prefix}/usr/include --disable-debug --disable-sanity-checks --enable-kernel=${CT_LIBC_GLIBC_MIN_KERNEL} --with-__thread --with-tls --enable-shared ${fp_config[index]} ${cpu_config[index]} --enable-add-ons=cortex-strings,nptl,ports
 
 #${CC_PATH}/${TC_PREFIX}-gcc CFLAGS="-O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" CC="${TC_PREFIX}-gcc" AR=${TC_PREFIX}-ar RANLIB=${TC_PREFIX}-ranlib ${src_dir}/configure --prefix=/usr --build=i686-build_pc-linux-gnu --host=${TC_PREFIX} --without-cvs --disable-profile --disable-debug --without-gd --with-headers=${dest_dir_prefix}/usr/include --cache-file=config.cache --with-__thread --with-tls --enable-shared ${fp_config[index]} --enable-add-ons=nptl,ports --enable-kernel=${CT_LIBC_GLIBC_MIN_KERNEL}
         
-        make OBJDUMP_FOR_HOST=${TC_PREFIX}-objdump CFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" ASFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" PARALLELMFLAGS= -j1 csu/subdir_lib
-        
+        make OBJDUMP_FOR_HOST=${TC_PREFIX}-objdump CFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" ASFLAGS="-mthumb-interwork -mlittle-endian -O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" PARALLELMFLAGS= -j6 csu/subdir_lib        
+        if [ "$?" != "0" ]; then
+                exit -1;
+        fi
+
         mkdir ${dest_dir_prefix}/${dest_dirname[index]}/usr/lib -p
 	cp -fpv csu/crt1.o csu/crti.o csu/crtn.o ${dest_dir_prefix}/${dest_dirname[index]}/usr/lib
 

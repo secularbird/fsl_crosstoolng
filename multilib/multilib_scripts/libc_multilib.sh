@@ -58,6 +58,21 @@ libc_multilib()
     fp_config[10]="--with-fp"
     fp_config[11]="--without-fp"
 
+    local -a cpu_config
+
+    cpu_config[0]="--with-cpu=armv7-a"
+    cpu_config[1]="--with-cpu=armv7-a"
+    cpu_config[2]=""
+    cpu_config[3]="--with-cpu=armv7-a"
+    cpu_config[4]="--with-cpu=armv7-a"
+    cpu_config[5]=""
+    cpu_config[6]="--with-cpu=armv7-a"
+    cpu_config[7]="--with-cpu=armv7-a"
+    cpu_config[8]="--with-cpu=armv7-a"
+    cpu_config[9]=""
+    cpu_config[10]=""
+    cpu_config[11]=""
+
     for ((index=0; index < ${#dest_dirname[@]}; index++)) {
 	# FIXME: add some code to check it this option is already built.
 	if [ -e ${dest_dir_prefix}/${dest_dirname[index]}/lib/libc.so.6 ]; then
@@ -71,11 +86,17 @@ libc_multilib()
 	echo "libc_cv_forced_unwind=yes" > config.cache
 	echo "libc_cv_c_cleanup=yes" >> config.cache
 
-        BUILD_CC=${CC_PATH}/${TC_PREFIX}-gcc CFLAGS="-O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" CC="${TC_PREFIX}-gcc" AR=${TC_PREFIX}-ar RANLIB=${TC_PREFIX}-ranlib ${src_dir}/configure --prefix=/usr --includedir=/usr/include --build=i686-build_pc-linux-gnu --host=${TC_PREFIX} --without-cvs --disable-profile --disable-debug --without-gd --disable-sanity-checks --cache-file=config.cache --with-headers=${dest_dir_prefix}/usr/include --with-__thread --with-tls --enable-shared ${fp_config[index]} --enable-add-ons=nptl,ports --enable-kernel=${CT_LIBC_GLIBC_MIN_KERNEL}
+        BUILD_CC=${CC_PATH}/${TC_PREFIX}-gcc CFLAGS="-O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" CC="${TC_PREFIX}-gcc" AR=${TC_PREFIX}-ar RANLIB=${TC_PREFIX}-ranlib ${src_dir}/configure --prefix=/usr --includedir=/usr/include --build=i686-build_pc-linux-gnu --host=${TC_PREFIX} --without-cvs --disable-profile --disable-debug --without-gd --disable-sanity-checks --cache-file=config.cache --with-headers=${dest_dir_prefix}/usr/include --with-__thread --with-tls --enable-shared ${fp_config[index]} ${cpu_config[index]} --enable-add-ons=nptl,ports,cortex-strings --enable-kernel=${CT_LIBC_GLIBC_MIN_KERNEL}
         
-        make OBJDUMP_FOR_HOST=${TC_PREFIX}-objdump CFLAGS="-O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" ASFLAGS="${gcc_options[index]}" PARALLELMFLAGS= -j1 all
-        
-        make install_root=${dest_dir_prefix}/${dest_dirname[index]} OBJDUMP_FOR_HOST=${TC_PREFIX}-objdump PARALLELMFLAGS= -j1 install
+        make OBJDUMP_FOR_HOST=${TC_PREFIX}-objdump CFLAGS="-O2 -U_FORTIFY_SOURCE ${gcc_options[index]}" ASFLAGS="${gcc_options[index]}" PARALLELMFLAGS= -j6 all
+	if [ "$?" != "0" ]; then
+		exit -1;
+	fi        
+
+        make install_root=${dest_dir_prefix}/${dest_dirname[index]} OBJDUMP_FOR_HOST=${TC_PREFIX}-objdump PARALLELMFLAGS= -j6 install
+	if [ "$?" != "0" ]; then
+		exit -1;
+	fi        
 
 	echo "${gcc_options[index]}" > ${dest_dir_prefix}/${dest_dirname[index]}/gcc_option
 	# we only keep one header file copy.
